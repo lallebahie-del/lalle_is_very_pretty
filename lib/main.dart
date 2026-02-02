@@ -9,7 +9,7 @@ import 'screens/login_page.dart';
 import 'screens/register_page.dart';
 import 'screens/user_home_page.dart';
 import 'screens/dashboard_admin.dart';
-import 'screens/user_reports_page.dart';
+import 'widgets/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,28 +48,35 @@ class _MyAppState extends State<MyApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           themeMode: themeManager.themeMode,
-          theme: ThemeData(useMaterial3: true),
+          theme: ThemeData(
+            useMaterial3: true,
+            colorSchemeSeed: const Color(0xFF386641),
+          ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             useMaterial3: true,
+            colorSchemeSeed: const Color(0xFF386641),
           ),
-          initialRoute: '/login',
+          home: AuthWrapper(
+            appLanguage: appLanguage,
+            themeManager: themeManager,
+          ),
           routes: {
             '/login': (_) => LoginPage(
-              appLanguage: appLanguage,
-              themeManager: themeManager,
-            ),
+                  appLanguage: appLanguage,
+                  themeManager: themeManager,
+                ),
             '/register': (_) => RegisterPage(appLanguage: appLanguage),
             '/user': (_) => UserHomePage(
-              appLanguage: appLanguage,
-              themeManager: themeManager,
-            ),
+                  appLanguage: appLanguage,
+                  themeManager: themeManager,
+                ),
             '/admin': (_) => DashboardAdmin(
-              themeManager: themeManager,
-            ),
+                  themeManager: themeManager,
+                ),
             '/user-reports': (_) => UserReportsPage(
-              themeManager: themeManager,
-            ),
+                  themeManager: themeManager,
+                ),
           },
         );
       },

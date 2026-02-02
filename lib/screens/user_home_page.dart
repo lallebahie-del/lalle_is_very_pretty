@@ -23,154 +23,234 @@ class UserHomePage extends StatelessWidget {
     final lang = appLanguage.code;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(AppStrings.get('user_space', lang)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          AppStrings.get('user_space', lang),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
-          // 🌍 MULTI-LANGUE
           IconButton(
-            icon: const Icon(Icons.language),
+            icon: const Icon(Icons.language, color: Colors.white),
             onPressed: appLanguage.toggle,
           ),
-
-          // 🌙 THEME
           IconButton(
-            icon: const Icon(Icons.dark_mode),
+            icon: Icon(
+              themeManager.themeMode == ThemeMode.dark
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+              color: Colors.white,
+            ),
             onPressed: themeManager.toggleTheme,
           ),
-
-          // 🔓 LOGOUT
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              Navigator.pushReplacementNamed(context, '/login');
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+              }
             },
           ),
         ],
       ),
-      body: Center(
-        child: Card(
-          elevation: 8,
-          margin: const EdgeInsets.all(24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF386641), Color(0xFF6A994E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(32),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.person,
-                  size: 90,
-                  color: Colors.blue,
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 Text(
                   AppStrings.get('welcome_user', lang),
-                  style: const TextStyle(fontSize: 22),
-                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF386641),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ReportPage(
-                            appLanguage: appLanguage,
-                            themeManager: themeManager,
-                          ),
+                const SizedBox(height: 10),
+                Text(
+                  "Que souhaitez-vous faire aujourd'hui ?",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                _buildActionCard(
+                  context,
+                  title: "SIGNALER UN PROBLÈME",
+                  subtitle: "Prenez une photo et localisez l'incident",
+                  icon: Icons.add_a_photo_rounded,
+                  color: Colors.white.withOpacity(0.15),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportPage(
+                          appLanguage: appLanguage,
+                          themeManager: themeManager,
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.add_a_photo_rounded, color: Colors.white),
-                    label: const Text(
-                      "SIGNALER UN PROBLÈME",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF386641),
-                      surfaceTintColor: Colors.white,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: Color(0xFF386641), width: 1.5),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/user-reports');
-                    },
-                    icon: const Icon(Icons.history_rounded),
-                    label: const Text(
-                      "MES SIGNALEMENTS",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF386641),
-                      surfaceTintColor: Colors.white,
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: const BorderSide(color: Color(0xFF386641), width: 1.5),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSmallCard(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => MapPage(
-                            appLanguage: appLanguage,
-                            themeManager: themeManager,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.map_rounded),
-                    label: const Text(
-                      "VOIR LA CARTE",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        title: "MES SIGNALEMENTS",
+                        icon: Icons.history_rounded,
+                        onTap: () => Navigator.pushNamed(context, '/user-reports'),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: _buildSmallCard(
+                        context,
+                        title: "VOIR LA CARTE",
+                        icon: Icons.map_rounded,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MapPage(
+                                appLanguage: appLanguage,
+                                themeManager: themeManager,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 40),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF386641).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, size: 32, color: const Color(0xFF386641)),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF386641),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 40, color: const Color(0xFF386641)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF386641),
+              ),
+            ),
+          ],
         ),
       ),
     );

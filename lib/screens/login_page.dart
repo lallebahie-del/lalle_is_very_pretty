@@ -227,20 +227,42 @@ class _LoginPageState extends State<LoginPage> {
           .doc(cred.user!.uid)
           .get();
 
-      Navigator.pushReplacementNamed(
-        context,
-        doc['role'] == 'admin' ? '/admin' : '/user',
-      );
+      if (!mounted) return;
+
+      if (doc.exists) {
+        Navigator.pushReplacementNamed(
+          context,
+          doc['role'] == 'admin' ? '/admin' : '/user',
+        );
+      } else {
+        // Handle case where user exists in Auth but not in Firestore
+        setState(() {
+          error = "Profil utilisateur non trouvé";
+        });
+        await FirebaseAuth.instance.signOut();
+      }
     } on FirebaseAuthException catch (e) {
+      debugPrint("Login error: ${e.code}");
       setState(() {
-        error = e.code == 'wrong-password'
-            ? 'Mot de passe incorrect'
-            : e.code == 'user-not-found'
-            ? 'Compte inexistant'
-            : 'Erreur de connexion';
+        if (e.code == 'user-not-found') {
+          error = 'Compte inexistant';
+        } else if (e.code == 'wrong-password') {
+          error = 'Mot de passe incorrect';
+        } else if (e.code == 'network-request-failed') {
+          error = 'Problème de connexion internet';
+        } else if (e.code == 'too-many-requests') {
+          error = 'Trop de tentatives, réessayez plus tard';
+        } else {
+          error = 'Erreur de connexion (${e.code})';
+        }
+      });
+    } catch (e) {
+      debugPrint("Unexpected login error: $e");
+      setState(() {
+        error = 'Une erreur inattendue est survenue';
       });
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => loading = false);
     }
   }
 

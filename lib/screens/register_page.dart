@@ -44,39 +44,38 @@ class _RegisterPageState extends State<RegisterPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Column(
-        children: [
-
-          // 🔵 HEADER
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF386641), Color(0xFF6A994E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.vertical(
-                bottom: Radius.circular(30),
-              ),
-            ),
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.language, color: Colors.white),
+            onPressed: widget.appLanguage.toggle,
+          ),
+        ],
+      ),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF386641), Color(0xFF6A994E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.language, color: Colors.white),
-                          onPressed: widget.appLanguage.toggle,
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
                     Text(
                       AppStrings.get('register', lang),
                       style: const TextStyle(
@@ -85,133 +84,137 @@ class _RegisterPageState extends State<RegisterPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Créez votre compte pour commencer",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 16,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // 🟢 FORMULAIRE
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Card(
-                elevation: 8,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-
-                      if (error != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.only(top: 30),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        if (error != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 20),
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.red.shade100),
+                            ),
+                            child: Text(
+                              error!,
+                              style: TextStyle(color: Colors.red.shade700),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        _field(firstName, AppStrings.get('first_name', lang), icon: Icons.person_outline),
+                        _field(lastName, AppStrings.get('last_name', lang), icon: Icons.person_outline),
+                        _field(phone, AppStrings.get('phone', lang), type: TextInputType.phone, icon: Icons.phone_outlined),
+                        _field(
+                          email,
+                          AppStrings.get('email', lang),
+                          icon: Icons.email_outlined,
+                          onChanged: (v) {
+                            setState(() => isEmailValid = validateEmail(v));
+                          },
+                          suffixIcon: email.text.isEmpty ? null : _icon(isEmailValid),
+                        ),
+                        _field(
+                          password,
+                          AppStrings.get('password', lang),
+                          obscure: true,
+                          icon: Icons.lock_outline,
+                          onChanged: (v) {
+                            setState(() {
+                              isPasswordValid = validatePassword(v);
+                              isConfirmPasswordValid = confirmPassword.text == v && v.isNotEmpty;
+                            });
+                          },
+                          suffixIcon: password.text.isEmpty ? null : _icon(isPasswordValid),
+                        ),
+                        _field(
+                          confirmPassword,
+                          AppStrings.get('confirm_password', lang),
+                          obscure: true,
+                          icon: Icons.lock_reset_outlined,
+                          onChanged: (v) {
+                            setState(() {
+                              isConfirmPasswordValid = v == password.text && v.isNotEmpty;
+                            });
+                          },
+                          suffixIcon: confirmPassword.text.isEmpty ? null : _icon(isConfirmPasswordValid),
+                        ),
+                        const SizedBox(height: 30),
+                        SizedBox(
                           width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            error!,
-                            style: TextStyle(
-                              color: theme.colorScheme.onErrorContainer,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: loading ? null : _register,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF386641),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              elevation: 5,
                             ),
-                            textAlign: TextAlign.center,
+                            child: loading
+                                ? const CircularProgressIndicator(color: Colors.white)
+                                : Text(
+                                    AppStrings.get('register', lang),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
-
-                      _field(firstName, AppStrings.get('first_name', lang)),
-                      _field(lastName, AppStrings.get('last_name', lang)),
-                      _field(phone, AppStrings.get('phone', lang),
-                          type: TextInputType.phone),
-
-                      _field(
-                        email,
-                        AppStrings.get('email', lang),
-                        onChanged: (v) {
-                          setState(() => isEmailValid = validateEmail(v));
-                        },
-                        suffixIcon: email.text.isEmpty
-                            ? null
-                            : _icon(isEmailValid),
-                      ),
-
-                      _field(
-                        password,
-                        AppStrings.get('password', lang),
-                        obscure: true,
-                        onChanged: (v) {
-                          setState(() {
-                            isPasswordValid = validatePassword(v);
-                            isConfirmPasswordValid =
-                                confirmPassword.text == v && v.isNotEmpty;
-                          });
-                        },
-                        suffixIcon: password.text.isEmpty
-                            ? null
-                            : _icon(isPasswordValid),
-                      ),
-
-                      _field(
-                        confirmPassword,
-                        AppStrings.get('confirm_password', lang),
-                        obscure: true,
-                        onChanged: (v) {
-                          setState(() {
-                            isConfirmPasswordValid =
-                                v == password.text && v.isNotEmpty;
-                          });
-                        },
-                        suffixIcon: confirmPassword.text.isEmpty
-                            ? null
-                            : _icon(isConfirmPasswordValid),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: loading ? null : _register,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: headerColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          child: loading
-                              ? const CircularProgressIndicator(color: Colors.white)
-                              : Text(
-                            AppStrings.get('register', lang),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                        const SizedBox(height: 20),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: RichText(
+                            text: const TextSpan(
+                              style: TextStyle(color: Colors.grey),
+                              children: [
+                                TextSpan(text: "Vous avez déjà un compte ? "),
+                                TextSpan(
+                                  text: "Se connecter",
+                                  style: TextStyle(
+                                    color: Color(0xFF386641),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("Retour", style: TextStyle(color: headerColor)),
-                      ),
-                    ],
+                        const SizedBox(height: 40),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
   }
 
   Widget _icon(bool ok) {
@@ -222,13 +225,14 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Widget _field(
-      TextEditingController controller,
-      String label, {
-        bool obscure = false,
-        TextInputType type = TextInputType.text,
-        void Function(String)? onChanged,
-        Widget? suffixIcon,
-      }) {
+    TextEditingController controller,
+    String label, {
+    bool obscure = false,
+    TextInputType type = TextInputType.text,
+    void Function(String)? onChanged,
+    Widget? suffixIcon,
+    IconData? icon,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
@@ -238,13 +242,26 @@ class _RegisterPageState extends State<RegisterPage> {
         onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
+          prefixIcon: icon != null ? Icon(icon, color: const Color(0xFF386641).withOpacity(0.7)) : null,
           suffixIcon: suffixIcon,
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          labelStyle: TextStyle(color: Colors.grey.shade600),
           floatingLabelStyle: const TextStyle(
-            color: headerColor,
+            color: Color(0xFF386641),
             fontWeight: FontWeight.bold,
           ),
-          focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: headerColor),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFF386641), width: 2),
           ),
         ),
       ),
