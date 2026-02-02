@@ -25,8 +25,15 @@ class DashboardAdmin extends StatefulWidget {
 class _DashboardAdminState extends State<DashboardAdmin> {
   String _searchQuery = "";
   String _statusFilter = "Tous";
+  late Stream<List<Signalement>> _signalementsStream;
 
-  Stream<List<Signalement>> getSignalements() {
+  @override
+  void initState() {
+    super.initState();
+    _signalementsStream = _getSignalements();
+  }
+
+  Stream<List<Signalement>> _getSignalements() {
     return FirebaseFirestore.instance
         .collection('signalements')
         .orderBy('date', descending: true)
@@ -66,21 +73,21 @@ class _DashboardAdminState extends State<DashboardAdmin> {
         ),
       ],
       child: StreamBuilder<List<Signalement>>(
-        stream: getSignalements(),
+        stream: _signalementsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Colors.white));
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF386641)));
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(
-              child: Text("Aucun signalement", style: TextStyle(color: Colors.white)),
+              child: Text("Aucun signalement", style: TextStyle(color: Colors.black)),
             );
           }
 
           var signalements = snapshot.data!;
 
-          // 🔍 Filtering Logic inside build ensures re-render on setState
+          // 🔍 Filtering Logic
           if (_searchQuery.isNotEmpty) {
             signalements = signalements.where((s) {
               final query = _searchQuery.toLowerCase();
@@ -94,9 +101,11 @@ class _DashboardAdminState extends State<DashboardAdmin> {
             signalements = signalements.where((s) => s.status == _statusFilter).toList();
           }
 
-          final total = snapshot.data!.length;
-          final resolved = snapshot.data!.where((s) => s.status == 'Résolu').length;
-          final inProgress = snapshot.data!.where((s) => s.status == 'En cours').length;
+          // Stats should reflect ALL data, not just filtered (standard dashboard behavior)
+          // Or filtered? Let's do filtered to match user expectation of "Search"
+          final total = signalements.length;
+          final resolved = signalements.where((s) => s.status == 'Résolu').length;
+          final inProgress = signalements.where((s) => s.status == 'En cours').length;
 
           return CustomScrollView(
             slivers: [
@@ -126,6 +135,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                         children: [
                           TextField(
                             onChanged: (value) {
+                              // Ensure set state updates the filtered list
                               setState(() => _searchQuery = value);
                             },
                             decoration: InputDecoration(
@@ -223,7 +233,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildStatCard(context, "Total", "$total", Icons.list_alt_rounded, const Color(0xFF1BA37A)),
+          _buildStatCard(context, "Total", "$total", Icons.list_alt_rounded, const Color(0xFF386641)),
           _buildStatCard(context, "En cours", "$inProgress", Icons.schedule_rounded, const Color(0xFF2196F3)),
           _buildStatCard(context, "Résolus", "$resolved", Icons.check_circle_rounded, const Color(0xFF4CAF50)),
         ],
@@ -358,8 +368,8 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Color(0xFF1BA37A),
-                          Color(0xFF4FD1A5),
+                          Color(0xFF386641),
+                          Color(0xFF6A994E),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,

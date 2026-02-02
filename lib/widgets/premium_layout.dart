@@ -23,8 +23,8 @@ class PremiumLayout extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF1BA37A),
-              Color(0xFF0A8D6E),
+              Color(0xFF386641),
+              Color(0xFF6A994E),
             ],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -43,8 +43,8 @@ class PremiumLayout extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Color(0xFF1BA37A).withOpacity(0.9),
-                      Color(0xFF0A8D6E).withOpacity(0.9),
+                      Color(0xFF386641),
+                      Color(0xFF6A994E),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
