@@ -23,7 +23,6 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   GoogleMapController? _controller;
-  Set<Marker> _markers = {}; // Removed final to allow re-assignment
   bool _showOnlyMyReports = false;
   
   static const CameraPosition _initialPosition = CameraPosition(
@@ -51,7 +50,7 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  void _updateMarkers(List<Signalement> signalements) {
+  Set<Marker> _buildMarkers(List<Signalement> signalements) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final Set<Marker> newMarkers = {};
 
@@ -65,9 +64,7 @@ class _MapPageState extends State<MapPage> {
           Marker(
             markerId: MarkerId(s.id),
             position: LatLng(s.latitude!, s.longitude!),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              _getHueForStatus(s.status),
-            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(_getHueForStatus(s.status)),
             infoWindow: InfoWindow(
               title: s.type,
               snippet: "${s.status} - ${s.description}",
@@ -76,23 +73,14 @@ class _MapPageState extends State<MapPage> {
         );
       }
     }
-
-    if (mounted) {
-      setState(() {
-        _markers = newMarkers; // Re-assigning entire set
-      });
-    }
+    return newMarkers;
   }
 
   double _getHueForStatus(String status) {
     switch (status) {
-      case 'En cours':
-        return BitmapDescriptor.hueBlue;
-      case 'Résolu':
-        return BitmapDescriptor.hueGreen;
-      case 'En attente':
-      default:
-        return BitmapDescriptor.hueOrange;
+      case 'En cours': return BitmapDescriptor.hueBlue;
+      case 'Résolu': return BitmapDescriptor.hueGreen;
+      default: return BitmapDescriptor.hueOrange;
     }
   }
 
@@ -108,34 +96,47 @@ class _MapPageState extends State<MapPage> {
         stream: FirebaseFirestore.instance.collection('signalements').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text("Erreur: ${snapshot.error}"));
+            return Center(child: Text("Erreur Firestore: ${snapshot.error}"));
           }
 
-          if (snapshot.connectionState == ConnectionState.waiting && _markers.isEmpty) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF386641)));
           }
 
-          if (snapshot.hasData) {
-            final signalements = snapshot.data!.docs.map((doc) {
-              return Signalement.fromFirestore(doc.id, doc.data() as Map<String, dynamic>);
-            }).toList();
-            
-            // On utilise WidgetsBinding pour éviter de déclencher setState pendant le build
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _updateMarkers(signalements);
-            });
-          }
+          final signalements = snapshot.data!.docs.map((doc) {
+            return Signalement.fromFirestore(doc.id, doc.data() as Map<String, dynamic>);
+          }).toList();
+
+          final markers = _buildMarkers(signalements);
+          final reportsWithCoords = signalements.where((s) => s.latitude != null && s.longitude != null).length;
 
           return Stack(
             children: [
               GoogleMap(
                 initialCameraPosition: _initialPosition,
-                markers: _markers,
+                markers: markers,
                 myLocationEnabled: true,
-                myLocationButtonEnabled: false, // On utilise notre bouton personnalisé
+                myLocationButtonEnabled: false,
                 onMapCreated: (controller) => _controller = controller,
               ),
               
+              // 🔘 Statistiques en haut (Debug)
+              Positioned(
+                top: 70,
+                left: 16,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    "$reportsWithCoords / ${signalements.length} rapports avec GPS",
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+
               Positioned(
                 top: 16,
                 left: 16,
@@ -147,22 +148,14 @@ class _MapPageState extends State<MapPage> {
                       _buildFilterChip(
                         label: "Tous les rapports",
                         selected: !_showOnlyMyReports,
-                        onSelected: (v) {
-                          if (v) setState(() {
-                            _showOnlyMyReports = false;
-                          });
-                        },
+                        onSelected: (v) { if (v) setState(() => _showOnlyMyReports = false); },
                         icon: Icons.map,
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
                         label: "Mes rapports",
                         selected: _showOnlyMyReports,
-                        onSelected: (v) {
-                          if (v) setState(() {
-                            _showOnlyMyReports = true;
-                          });
-                        },
+                        onSelected: (v) { if (v) setState(() => _showOnlyMyReports = true); },
                         icon: Icons.person_pin_circle,
                       ),
                     ],
@@ -186,8 +179,9 @@ class _MapPageState extends State<MapPage> {
           FloatingActionButton(
             heroTag: "btn_refresh",
             onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("${_markers.length} marqueurs affichés")),
+              _getCurrentLocation();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Rafraîchissement des données...")),
               );
             },
             backgroundColor: const Color(0xFF386641),
@@ -221,8 +215,6 @@ class _MapPageState extends State<MapPage> {
       ),
       backgroundColor: Colors.white,
       elevation: 4,
-      shadowColor: Colors.black.withOpacity(0.3),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }
