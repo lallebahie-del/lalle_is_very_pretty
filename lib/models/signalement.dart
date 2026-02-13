@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Signalement {
   final String id;
+  final String? userId; // Added for filtering
   String userName;
   final String type;
   final String description;
@@ -14,6 +15,7 @@ class Signalement {
 
   Signalement({
     required this.id,
+    this.userId,
     required this.userName,
     required this.type,
     required this.description,
@@ -28,6 +30,7 @@ class Signalement {
   factory Signalement.fromFirestore(String id, Map<String, dynamic> data) {
     return Signalement(
       id: id,
+      userId: data['userId'],
       userName: (data['userName'] == null ||
           data['userName'].toString().isEmpty)
           ? 'Anonyme'
