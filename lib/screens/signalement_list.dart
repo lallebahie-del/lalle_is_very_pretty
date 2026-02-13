@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/signalement.dart';
 import '../widgets/premium_layout.dart';
 import '../widgets/status_chip.dart';
@@ -18,17 +19,69 @@ class SignalementListScreen extends StatefulWidget {
       _SignalementListScreenState();
 }
 
-class _SignalementListScreenState extends State<SignalementListScreen> {
-  final List<Signalement> signalements = [
-    Signalement(
-      id: '',
-      userName: 'Ahmed Ali',
-      type: 'Voirie',
-      date: DateTime.now(),
-      status: 'En attente',
-      description: 'Route endommagée',
-    ),
-  ];
+class _SignalementListScreenState
+    extends State<SignalementListScreen> {
+  final List<Signalement> _signalements = [];
+  final Map<String, String> _userNamesCache = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSignalements();
+  }
+
+  Future<String> _getUserName(String userId) async {
+    if (_userNamesCache.containsKey(userId)) {
+      return _userNamesCache[userId]!;
+    }
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .get();
+
+    final data = userDoc.data();
+    final nom = data?['nom'] ?? '';
+    final prenom = data?['prenom'] ?? '';
+    final fullName = ('$prenom $nom').trim();
+
+    final name = fullName.isEmpty ? 'Anonyme' : fullName;
+    _userNamesCache[userId] = name;
+    return name;
+  }
+
+  Future<void> _loadSignalements() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('signalements')
+        .orderBy('date', descending: true)
+        .get();
+
+    final loaded = snapshot.docs.map((doc) {
+      final data = doc.data();
+      return Signalement(
+        id: doc.id,
+        userName: '',
+        type: data['type'] ?? 'Autre',
+        date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        status: data['status'] ?? 'En attente',
+        description: data['description'] ?? '',
+      );
+    }).toList();
+
+    setState(() {
+      _signalements.clear();
+      _signalements.addAll(loaded);
+    });
+
+    // Charger les noms
+    for (int i = 0; i < snapshot.docs.length; i++) {
+      final userId = snapshot.docs[i]['userId'];
+      final name = await _getUserName(userId);
+      setState(() {
+        _signalements[i].userName = name;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,54 +89,22 @@ class _SignalementListScreenState extends State<SignalementListScreen> {
       title: "Signalements",
       themeManager: widget.themeManager,
       child: ListView.builder(
-        itemCount: signalements.length,
+        itemCount: _signalements.length,
         itemBuilder: (_, i) {
-          final s = signalements[i];
-
-          return GestureDetector(
-            onTap: () async {
-              final newStatus = await Navigator.push<String>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => SignalementDetailScreen(
-                    signalement: s,
-                    themeManager: widget.themeManager,
-                  ),
+          final s = _signalements[i];
+          return ListTile(
+            title: Text(s.type),
+            subtitle: Text(
+              "Utilisateur : ${s.userName.isEmpty ? 'Chargement...' : s.userName}",
+            ),
+            trailing: StatusChip(status: s.status),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SignalementDetailScreen(
+                  signalement: s,
+                  themeManager: widget.themeManager,
                 ),
-              );
-
-              if (newStatus != null) {
-                setState(() => s.status = newStatus);
-              }
-            },
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    s.type,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text("Utilisateur : ${s.userName}"),
-                  Text("Date : ${s.date.toString().split(' ')[0]}"),
-                  const SizedBox(height: 8),
-                  StatusChip(status: s.status),
-                ],
               ),
             ),
           );

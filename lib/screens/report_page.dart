@@ -1,8 +1,8 @@
 import 'dart:io';
+import 'dart:convert'; // Pour Base64
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:lottie/lottie.dart';
@@ -27,8 +27,9 @@ class ReportPage extends StatefulWidget {
 class _ReportPageState extends State<ReportPage> {
   final _descriptionController = TextEditingController();
   final _picker = ImagePicker();
-  
+
   File? _imageFile;
+  String? _imageFileName;
   String? _selectedCategory;
   bool _loading = false;
   Position? _currentPosition;
@@ -55,7 +56,6 @@ class _ReportPageState extends State<ReportPage> {
     setState(() {
       _descriptionController.text = prefs.getString('draft_desc') ?? '';
       _selectedCategory = prefs.getString('draft_cat');
-      // Image draft handling is complex (path might change), skipping for simplicity
     });
   }
 
@@ -79,25 +79,16 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
 
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return;
-    }
-
-    permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return;
-      }
+      if (permission == LocationPermission.denied) return;
     }
-    
-    if (permission == LocationPermission.deniedForever) {
-      return;
-    } 
+
+    if (permission == LocationPermission.deniedForever) return;
 
     _currentPosition = await Geolocator.getCurrentPosition();
     if (mounted) setState(() {});
@@ -111,10 +102,11 @@ class _ReportPageState extends State<ReportPage> {
         maxHeight: 1080,
         imageQuality: 85,
       );
-      
+
       if (pickedFile != null) {
         setState(() {
           _imageFile = File(pickedFile.path);
+          _imageFileName = pickedFile.name;
         });
       }
     } catch (e) {
@@ -137,26 +129,32 @@ class _ReportPageState extends State<ReportPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception("Utilisateur non connecté");
 
-      String? imageUrl;
+      // 🔹 Récupération du nom depuis Firestore /users
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-      // Upload Image if selected
+      final data = userDoc.data();
+      final nom = data?['nom'] ?? '';
+      final prenom = data?['prenom'] ?? '';
+      final fullName = ('$nom $prenom').trim();
+      final userName = fullName.isEmpty ? 'Anonyme' : fullName;
+
+      String? imageBase64;
       if (_imageFile != null) {
-        final ref = FirebaseStorage.instance
-            .ref()
-            .child('reports')
-            .child('${DateTime.now().millisecondsSinceEpoch}_${user.uid}.jpg');
-            
-        await ref.putFile(_imageFile!);
-        imageUrl = await ref.getDownloadURL();
+        final bytes = await _imageFile!.readAsBytes();
+        imageBase64 = base64Encode(bytes);
       }
 
-      // Save to Firestore
+      // Enregistrement Firestore
       await FirebaseFirestore.instance.collection('signalements').add({
         'userId': user.uid,
-        'userName': user.displayName ?? user.email ?? 'Anonyme',
+        'userName': userName, // ✅ vrai nom maintenant
         'type': _selectedCategory,
         'description': _descriptionController.text.trim(),
-        'imageUrl': imageUrl,
+        'imageBase64': imageBase64,
+        'imageFileName': _imageFileName,
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
         'status': 'En attente',
@@ -166,7 +164,6 @@ class _ReportPageState extends State<ReportPage> {
       await _clearDraft();
 
       if (mounted) {
-        // Show Success Animation
         await showDialog(
           context: context,
           barrierDismissible: false,
@@ -177,11 +174,11 @@ class _ReportPageState extends State<ReportPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Lottie.network(
-                  'https://assets2.lottiefiles.com/packages/lf20_7W0ppo.json', // Checkmark animation
+                  'https://assets2.lottiefiles.com/packages/lf20_7W0ppo.json',
                   repeat: false,
                   height: 150,
-                  errorBuilder: (context, error, stackTrace) => 
-                      const Icon(Icons.check_circle, color: Colors.green, size: 80),
+                  errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.check_circle, color: Colors.green, size: 80),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -243,8 +240,6 @@ class _ReportPageState extends State<ReportPage> {
                   textAlign: TextAlign.center,
                 ),
               ),
-
-            // 📸 Photo Section
             GestureDetector(
               onTap: () => _showImageSourceModal(context),
               child: Container(
@@ -258,54 +253,51 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                   image: _imageFile != null
                       ? DecorationImage(
-                          image: FileImage(_imageFile!),
-                          fit: BoxFit.cover,
-                        )
+                    image: FileImage(_imageFile!),
+                    fit: BoxFit.cover,
+                  )
                       : null,
                 ),
                 child: _imageFile == null
                     ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.camera_alt_rounded,
-                            size: 48,
-                            color: isDark ? Colors.grey[400] : Colors.grey[600],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            "Ajouter une photo",
-                            style: TextStyle(
-                              color: isDark ? Colors.grey[400] : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      )
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.camera_alt_rounded,
+                      size: 48,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Ajouter une photo",
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                )
                     : null,
               ),
             ),
-            
             const SizedBox(height: 24),
-
-            // 📍 Location Status
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _currentPosition != null 
-                    ? Colors.green.withOpacity(0.1) 
+                color: _currentPosition != null
+                    ? Colors.green.withOpacity(0.1)
                     : Colors.orange.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                   Icon(
+                  Icon(
                     _currentPosition != null ? Icons.location_on : Icons.location_off,
                     color: _currentPosition != null ? Colors.green : Colors.orange,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _currentPosition != null 
+                      _currentPosition != null
                           ? "Position GPS acquise"
                           : "Recherche de la position...",
                       style: TextStyle(
@@ -316,17 +308,14 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                   if (_currentPosition == null)
                     const SizedBox(
-                      width: 16, 
-                      height: 16, 
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                 ],
               ),
             ),
-
             const SizedBox(height: 24),
-
-            // 📋 Category
             DropdownButtonFormField<String>(
               value: _selectedCategory,
               decoration: InputDecoration(
@@ -337,13 +326,12 @@ class _ReportPageState extends State<ReportPage> {
                   borderSide: const BorderSide(color: Color(0xFF386641), width: 2),
                 ),
               ),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+              items: _categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
               onChanged: (v) => setState(() => _selectedCategory = v),
             ),
-
             const SizedBox(height: 16),
-
-            // 📝 Description
             TextField(
               controller: _descriptionController,
               maxLines: 4,
@@ -357,10 +345,7 @@ class _ReportPageState extends State<ReportPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 32),
-
-            // 🚀 Submit Button
             SizedBox(
               height: 50,
               child: ElevatedButton(
@@ -374,13 +359,13 @@ class _ReportPageState extends State<ReportPage> {
                 child: _loading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
-                        "ENVOYER LE SIGNALEMENT",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                  "ENVOYER LE SIGNALEMENT",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ],

@@ -2,51 +2,44 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Signalement {
   final String id;
-  final String userName;
+  String userName;
   final String type;
-  final DateTime date;
-  String status;
   final String description;
-  final String? imageUrl;
+  String status;
+  final DateTime date;
   final double? latitude;
   final double? longitude;
+  final String? imageBase64;
+  final String? imageUrl;
 
   Signalement({
     required this.id,
     required this.userName,
     required this.type,
-    required this.date,
-    required this.status,
     required this.description,
-    this.imageUrl,
+    required this.status,
+    required this.date,
     this.latitude,
     this.longitude,
+    this.imageBase64,
+    this.imageUrl,
   });
 
   factory Signalement.fromFirestore(String id, Map<String, dynamic> data) {
     return Signalement(
       id: id,
-      userName: data['userName'] ?? 'Anonyme',
-      type: data['type'] ?? 'Non spécifié',
-      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      status: data['status'] ?? 'En attente',
+      userName: (data['userName'] == null ||
+          data['userName'].toString().isEmpty)
+          ? 'Anonyme'
+          : data['userName'],
+      type: data['type'] ?? 'Autre',
       description: data['description'] ?? '',
+      status: data['status'] ?? 'En attente',
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      imageBase64: data['imageBase64'],
       imageUrl: data['imageUrl'],
-      latitude: data['latitude']?.toDouble(),
-      longitude: data['longitude']?.toDouble(),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userName': userName,
-      'type': type,
-      'date': Timestamp.fromDate(date),
-      'status': status,
-      'description': description,
-      'imageUrl': imageUrl,
-      'latitude': latitude,
-      'longitude': longitude,
-    };
   }
 }

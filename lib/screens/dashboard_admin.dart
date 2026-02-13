@@ -114,7 +114,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                   children: [
                     // 📊 Stats Cards
                     _buildStatsRow(context, total, inProgress, resolved),
-                    
+
                     const SizedBox(height: 20),
 
                     // 🔍 Search & Filter Bar
@@ -190,7 +190,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                     childCount: signalements.length,
                   ),
                 ),
-              
+
               const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
             ],
           );
@@ -379,7 +379,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                   ),
                   const SizedBox(width: 16),
 
-                  // 📸 IMAGE THUMBNAIL (if available)
+
                   if (s.imageUrl != null) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),

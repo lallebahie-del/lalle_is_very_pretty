@@ -5,10 +5,12 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'firebase_options.dart';
 import 'app_language.dart';
 import 'app_theme_manager.dart';
+
 import 'screens/login_page.dart';
 import 'screens/register_page.dart';
 import 'screens/user_home_page.dart';
 import 'screens/dashboard_admin.dart';
+import 'screens/user_reports_page.dart';
 import 'widgets/auth_wrapper.dart';
 
 void main() async {
@@ -63,20 +65,22 @@ class _MyAppState extends State<MyApp> {
           ),
           routes: {
             '/login': (_) => LoginPage(
-                  appLanguage: appLanguage,
-                  themeManager: themeManager,
-                ),
-            '/register': (_) => RegisterPage(appLanguage: appLanguage),
+              appLanguage: appLanguage,
+              themeManager: themeManager,
+            ),
+            '/register': (_) => RegisterPage(
+              appLanguage: appLanguage,
+            ),
             '/user': (_) => UserHomePage(
-                  appLanguage: appLanguage,
-                  themeManager: themeManager,
-                ),
+              appLanguage: appLanguage,
+              themeManager: themeManager,
+            ),
             '/admin': (_) => DashboardAdmin(
-                  themeManager: themeManager,
-                ),
+              themeManager: themeManager,
+            ),
             '/user-reports': (_) => UserReportsPage(
-                  themeManager: themeManager,
-                ),
+              themeManager: themeManager,
+            ),
           },
         );
       },
