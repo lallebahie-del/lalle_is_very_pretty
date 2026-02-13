@@ -57,15 +57,7 @@ class _SignalementListScreenState
         .get();
 
     final loaded = snapshot.docs.map((doc) {
-      final data = doc.data();
-      return Signalement(
-        id: doc.id,
-        userName: '',
-        type: data['type'] ?? 'Autre',
-        date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        status: data['status'] ?? 'En attente',
-        description: data['description'] ?? '',
-      );
+      return Signalement.fromFirestore(doc.id, doc.data() as Map<String, dynamic>);
     }).toList();
 
     setState(() {

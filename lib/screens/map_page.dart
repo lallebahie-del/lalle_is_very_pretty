@@ -23,21 +23,17 @@ class MapPage extends StatefulWidget {
 
 class _MapPageState extends State<MapPage> {
   GoogleMapController? _controller;
-  final Set<Marker> _markers = {};
-  List<Signalement> _allSignalements = [];
+  Set<Marker> _markers = {}; // Removed final to allow re-assignment
   bool _showOnlyMyReports = false;
-  bool _loading = true;
   
-  // Default position (e.g., city center) if GPS fails
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.5731, -7.5898), // Casablanca example
+    target: LatLng(33.5731, -7.5898), 
     zoom: 12,
   );
 
   @override
   void initState() {
     super.initState();
-    _loadSignalements();
     _getCurrentLocation();
   }
 
@@ -51,36 +47,17 @@ class _MapPageState extends State<MapPage> {
         ),
       );
     } catch (e) {
-      // Ignore location errors, just stay on default
+      debugPrint("Error getting location: $e");
     }
   }
 
-  Future<void> _loadSignalements() async {
-    try {
-      final snapshot = await FirebaseFirestore.instance.collection('signalements').get();
-      final List<Signalement> signalements = snapshot.docs.map((doc) {
-        return Signalement.fromFirestore(doc.id, doc.data());
-      }).toList();
-
-      if (mounted) {
-        setState(() {
-          _allSignalements = signalements;
-          _updateMarkers();
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _updateMarkers() {
+  void _updateMarkers(List<Signalement> signalements) {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     final Set<Marker> newMarkers = {};
 
     final filtered = _showOnlyMyReports
-        ? _allSignalements.where((s) => s.userId == currentUserId).toList()
-        : _allSignalements;
+        ? signalements.where((s) => s.userId == currentUserId).toList()
+        : signalements;
 
     for (var s in filtered) {
       if (s.latitude != null && s.longitude != null) {
@@ -100,10 +77,11 @@ class _MapPageState extends State<MapPage> {
       }
     }
 
-    setState(() {
-      _markers.clear();
-      _markers.addAll(newMarkers);
-    });
+    if (mounted) {
+      setState(() {
+        _markers = newMarkers; // Re-assigning entire set
+      });
+    }
   }
 
   double _getHueForStatus(String status) {
@@ -123,63 +101,98 @@ class _MapPageState extends State<MapPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Carte des Signalements"),
-         backgroundColor: const Color(0xFF386641),
+        backgroundColor: const Color(0xFF386641),
         foregroundColor: Colors.white,
       ),
-      body: Stack(
-        children: [
-          GoogleMap(
-            initialCameraPosition: _initialPosition,
-            markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            onMapCreated: (controller) => _controller = controller,
-          ),
-          
-          // 🔘 Filter Toggle Overlay
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildFilterChip(
-                    label: "Tous les rapports",
-                    selected: !_showOnlyMyReports,
-                    onSelected: (v) {
-                      if (v) setState(() {
-                        _showOnlyMyReports = false;
-                        _updateMarkers();
-                      });
-                    },
-                    icon: Icons.map,
-                  ),
-                  const SizedBox(width: 8),
-                  _buildFilterChip(
-                    label: "Mes rapports",
-                    selected: _showOnlyMyReports,
-                    onSelected: (v) {
-                      if (v) setState(() {
-                        _showOnlyMyReports = true;
-                        _updateMarkers();
-                      });
-                    },
-                    icon: Icons.person_pin_circle,
-                  ),
-                ],
-              ),
-            ),
-          ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('signalements').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text("Erreur: ${snapshot.error}"));
+          }
 
-          if (_loading)
-            Container(
-              color: Colors.black.withOpacity(0.3),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+          if (snapshot.connectionState == ConnectionState.waiting && _markers.isEmpty) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF386641)));
+          }
+
+          if (snapshot.hasData) {
+            final signalements = snapshot.data!.docs.map((doc) {
+              return Signalement.fromFirestore(doc.id, doc.data() as Map<String, dynamic>);
+            }).toList();
+            
+            // On utilise WidgetsBinding pour éviter de déclencher setState pendant le build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _updateMarkers(signalements);
+            });
+          }
+
+          return Stack(
+            children: [
+              GoogleMap(
+                initialCameraPosition: _initialPosition,
+                markers: _markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false, // On utilise notre bouton personnalisé
+                onMapCreated: (controller) => _controller = controller,
               ),
-            ),
+              
+              Positioned(
+                top: 16,
+                left: 16,
+                right: 16,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip(
+                        label: "Tous les rapports",
+                        selected: !_showOnlyMyReports,
+                        onSelected: (v) {
+                          if (v) setState(() {
+                            _showOnlyMyReports = false;
+                          });
+                        },
+                        icon: Icons.map,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildFilterChip(
+                        label: "Mes rapports",
+                        selected: _showOnlyMyReports,
+                        onSelected: (v) {
+                          if (v) setState(() {
+                            _showOnlyMyReports = true;
+                          });
+                        },
+                        icon: Icons.person_pin_circle,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "btn_loc",
+            onPressed: _getCurrentLocation,
+            backgroundColor: Colors.white,
+            child: const Icon(Icons.my_location, color: Color(0xFF386641)),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: "btn_refresh",
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("${_markers.length} marqueurs affichés")),
+              );
+            },
+            backgroundColor: const Color(0xFF386641),
+            child: const Icon(Icons.refresh, color: Colors.white),
+          ),
         ],
       ),
     );

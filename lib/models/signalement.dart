@@ -28,6 +28,13 @@ class Signalement {
   });
 
   factory Signalement.fromFirestore(String id, Map<String, dynamic> data) {
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      return null;
+    }
+
     return Signalement(
       id: id,
       userId: data['userId'],
@@ -39,8 +46,8 @@ class Signalement {
       description: data['description'] ?? '',
       status: data['status'] ?? 'En attente',
       date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      latitude: (data['latitude'] as num?)?.toDouble(),
-      longitude: (data['longitude'] as num?)?.toDouble(),
+      latitude: parseDouble(data['latitude']),
+      longitude: parseDouble(data['longitude']),
       imageBase64: data['imageBase64'],
       imageUrl: data['imageUrl'],
     );
