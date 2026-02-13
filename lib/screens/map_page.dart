@@ -24,9 +24,10 @@ class MapPage extends StatefulWidget {
 class _MapPageState extends State<MapPage> {
   GoogleMapController? _controller;
   bool _showOnlyMyReports = false;
+  bool _hasInitialZoom = false; // Prevents jumping every data update
   
   static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(33.5731, -7.5898), 
+    target: LatLng(18.0735, -15.9582), // Nouakchott, Mauritanie
     zoom: 12,
   );
 
@@ -47,6 +48,33 @@ class _MapPageState extends State<MapPage> {
       );
     } catch (e) {
       debugPrint("Error getting location: $e");
+    }
+  }
+
+  void _fitAllMarkers(Set<Marker> markers) {
+    if (markers.isEmpty || _controller == null) return;
+
+    double? minLat, maxLat, minLog, maxLog;
+
+    for (var m in markers) {
+      if (minLat == null || m.position.latitude < minLat) minLat = m.position.latitude;
+      if (maxLat == null || m.position.latitude > maxLat) maxLat = m.position.latitude;
+      if (minLog == null || m.position.longitude < minLog) minLog = m.position.longitude;
+      if (maxLog == null || m.position.longitude > maxLog) maxLog = m.position.longitude;
+    }
+
+    if (minLat != null && maxLat != null && minLog != null && maxLog != null) {
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLog),
+        northeast: LatLng(maxLat, maxLog),
+      );
+
+      // If only one marker, zoom to it with specific zoom level
+      if (markers.length == 1) {
+         _controller?.animateCamera(CameraUpdate.newLatLngZoom(LatLng(minLat, minLog), 14));
+      } else {
+        _controller?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50));
+      }
     }
   }
 
@@ -110,6 +138,14 @@ class _MapPageState extends State<MapPage> {
           final markers = _buildMarkers(signalements);
           final reportsWithCoords = signalements.where((s) => s.latitude != null && s.longitude != null).length;
 
+          // Auto-zoom only once when data first arrives
+          if (!_hasInitialZoom && markers.isNotEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _fitAllMarkers(markers);
+              _hasInitialZoom = true;
+            });
+          }
+
           return Stack(
             children: [
               GoogleMap(
@@ -117,7 +153,13 @@ class _MapPageState extends State<MapPage> {
                 markers: markers,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: false,
-                onMapCreated: (controller) => _controller = controller,
+                onMapCreated: (controller) {
+                  _controller = controller;
+                  if (markers.isNotEmpty && !_hasInitialZoom) {
+                    _fitAllMarkers(markers);
+                    _hasInitialZoom = true;
+                  }
+                },
               ),
               
               // 🔘 Statistiques en haut (Debug)
@@ -130,9 +172,15 @@ class _MapPageState extends State<MapPage> {
                     color: Colors.black.withOpacity(0.7),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    "$reportsWithCoords / ${signalements.length} rapports avec GPS",
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.red, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        "$reportsWithCoords / ${signalements.length} rapports avec GPS",
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -172,16 +220,28 @@ class _MapPageState extends State<MapPage> {
           FloatingActionButton(
             heroTag: "btn_loc",
             onPressed: _getCurrentLocation,
+            mini: true,
             backgroundColor: Colors.white,
             child: const Icon(Icons.my_location, color: Color(0xFF386641)),
+          ),
+          const SizedBox(height: 8),
+          FloatingActionButton(
+            heroTag: "btn_zoom_all",
+             mini: true,
+            onPressed: () {
+               // On recharge les données et on refit
+               _hasInitialZoom = false; 
+               setState(() {});
+            },
+            backgroundColor: Colors.white,
+            child: const Icon(Icons.zoom_out_map, color: Color(0xFF386641)),
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
             heroTag: "btn_refresh",
             onPressed: () {
-              _getCurrentLocation();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Rafraîchissement des données...")),
+                const SnackBar(content: Text("Recherche des signalements...")),
               );
             },
             backgroundColor: const Color(0xFF386641),
