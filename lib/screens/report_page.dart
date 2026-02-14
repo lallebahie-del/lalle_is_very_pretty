@@ -34,6 +34,7 @@ class _ReportPageState extends State<ReportPage> {
   bool _loading = false;
   Position? _currentPosition;
   String? _error;
+  String? _imageBase64; // ✅ Stockage de l'image en Base64
 
   final List<String> _categories = [
     'Voirie',
@@ -129,6 +130,11 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    setState(() {
+      _loading = true; // Optionnel: montrer un loader pendant la compression
+      _error = null;
+    });
+
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -138,13 +144,22 @@ class _ReportPageState extends State<ReportPage> {
       );
 
       if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-          _imageFileName = pickedFile.name;
-        });
+        // 🔹 Conversion immédiate en Base64 pour éviter de perdre le fichier temporaire
+        final bytes = await pickedFile.readAsBytes();
+        final base64String = base64Encode(bytes);
+
+        if (mounted) {
+          setState(() {
+            _imageFile = File(pickedFile.path);
+            _imageFileName = pickedFile.name;
+            _imageBase64 = base64String;
+          });
+        }
       }
     } catch (e) {
-      setState(() => _error = "Erreur lors de la sélection de l'image");
+      if (mounted) setState(() => _error = "Erreur lors de la sélection de l'image : $e");
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -175,11 +190,8 @@ class _ReportPageState extends State<ReportPage> {
       final fullName = ('$nom $prenom').trim();
       final userName = fullName.isEmpty ? 'Anonyme' : fullName;
 
-      String? imageBase64;
-      if (_imageFile != null) {
-        final bytes = await _imageFile!.readAsBytes();
-        imageBase64 = base64Encode(bytes);
-      }
+      // ✅ Utilisation du Base64 déjà calculé
+      final imageBase64Data = _imageBase64;
 
       // Enregistrement Firestore
       await FirebaseFirestore.instance.collection('signalements').add({
@@ -187,7 +199,7 @@ class _ReportPageState extends State<ReportPage> {
         'userName': userName, // ✅ vrai nom maintenant
         'type': _selectedCategory,
         'description': _descriptionController.text.trim(),
-        'imageBase64': imageBase64,
+        'imageBase64': imageBase64Data, // ✅ Nouveau nom de variable
         'imageFileName': _imageFileName,
         'latitude': _currentPosition?.latitude,
         'longitude': _currentPosition?.longitude,
