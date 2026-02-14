@@ -79,19 +79,53 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _error = "Le GPS est désactivé sur votre téléphone.");
+        return;
+      }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _error = "Permission GPS refusée.");
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _error = "Les permissions GPS sont bloquées. Veuillez les activer dans les réglages.");
+        return;
+      }
+
+      // 🔹 Recherche de la position avec un délai d'attente
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.balanced, // Moins gourmand que High, plus rapide
+          timeLimit: const Duration(seconds: 10),
+        );
+      } catch (e) {
+        // En cas de timeout ou erreur, on tente la dernière position connue
+        position = await Geolocator.getLastKnownPosition();
+        if (position == null) {
+          setState(() => _error = "Impossible de trouver votre position. Vérifiez votre connexion.");
+        }
+      }
+
+      if (position != null) {
+        if (mounted) {
+          setState(() {
+            _currentPosition = position;
+            _error = null;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = "Erreur GPS : $e");
     }
-
-    if (permission == LocationPermission.deniedForever) return;
-
-    _currentPosition = await Geolocator.getCurrentPosition();
-    if (mounted) setState(() {});
   }
 
   Future<void> _pickImage(ImageSource source) async {
