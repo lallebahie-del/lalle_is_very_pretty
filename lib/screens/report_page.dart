@@ -104,7 +104,7 @@ class _ReportPageState extends State<ReportPage> {
       Position? position;
       try {
         position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.balanced, // Moins gourmand que High, plus rapide
+          desiredAccuracy: LocationAccuracy.medium, // Plus rapide et précis pour ce besoin
           timeLimit: const Duration(seconds: 10),
         );
       } catch (e) {
